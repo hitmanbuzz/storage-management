@@ -9,19 +9,10 @@ import (
 	"github.com/google/uuid"
 )
 
-func hasExtension(fileName string) (string, bool) {
-	ext := filepath.Ext(fileName)
-	if ext == "" {
-		return "unknown", false
-	} else {
-		return ext, true
-	}
-}
-
-func SaveFile(src_data io.Reader, src_name string) (string, error) {
+func SaveFile(src_data io.Reader, src_name string) (int64, string, error) {
 	var fileName string
 
-	ext, hasExt := hasExtension(src_name)
+	ext, hasExt := util.GetExtension(src_name)
 	if !hasExt {
 		fileName = uuid.NewString()
 		ext = "unknown"
@@ -32,16 +23,20 @@ func SaveFile(src_data io.Reader, src_name string) (string, error) {
 
 	subDir := ext
 	dir := filepath.Join(util.BASE_PATH, subDir)
+	fullPath := filepath.Join(dir, fileName)
 
 	os.MkdirAll(dir, 0750)
-	dst, err := os.Create(filepath.Join(dir, fileName))
+	dst, err := os.Create(fullPath)
 	if err != nil {
-		return "", err
+		return 0, "", err
 	}
 	defer dst.Close()
-	if _, err := io.Copy(dst, src_data); err != nil {
-		return "", err
+	var writeSize int64
+
+	if writeSize, err = io.Copy(dst, src_data); err != nil {
+		os.Remove(fullPath)
+		return 0, "", err
 	}
 
-	return filepath.Join(subDir, fileName), nil // return the path without the `BASE_PATH`
+	return writeSize, filepath.Join(util.BASE_PATH, subDir, fileName), nil // return the path without the `BASE_PATH`
 }

@@ -19,7 +19,8 @@ func NewServer(ip_addr string) *server {
 }
 
 func (s *server) Routes() {
-	// route := newRoute(s.engine)
+	routes := newRoutes(s.engine)
+	s.engine.POST("/upload", routes.Upload)
 }
 
 func (s *server) Run() {

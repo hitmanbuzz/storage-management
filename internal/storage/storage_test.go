@@ -11,13 +11,14 @@ import (
 )
 
 const srcFile = "../../hello.txt"
+const BASE_PATH = "../../test_dir"
 
 func TestCompareHash(t *testing.T) {
 	src, err := os.Open(srcFile)
 	require.Nil(t, err)
 	defer src.Close()
 
-	srcBytes := make([]byte, 4096)
+	srcBytes := make([]byte, util.MAX_BYTE_READ)
 	_, err = src.Read(srcBytes)
 	require.Nil(t, err)
 
@@ -25,14 +26,14 @@ func TestCompareHash(t *testing.T) {
 
 	srcHash := util.GetXhHash(srcBytes)
 
-	p, err := SaveFile(src, srcFile)
+	_, p, err := SaveFile(src, srcFile)
 	require.Nil(t, err)
 
-	dest, err := os.Open(filepath.Join(util.BASE_PATH, p))
+	dest, err := os.Open(filepath.Join(BASE_PATH, p))
 	require.Nil(t, err)
 	defer dest.Close()
 
-	destBytes := make([]byte, 4096)
+	destBytes := make([]byte, util.MAX_BYTE_READ)
 	_, err = dest.Read(destBytes)
 	require.Nil(t, err)
 
@@ -46,7 +47,7 @@ func TestSaveFile(t *testing.T) {
 	require.Nil(t, err)
 	defer src.Close()
 
-	p, err := SaveFile(src, srcFile)
+	_, p, err := SaveFile(src, srcFile)
 	require.Nil(t, err)
 
 	require.NotEqual(t, p, "")
