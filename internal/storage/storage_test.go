@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSaveFile(t *testing.T) {
-	srcFile := "../../hello.txt"
+const srcFile = "../../hello.txt"
 
+func TestCompareHash(t *testing.T) {
 	src, err := os.Open(srcFile)
 	require.Nil(t, err)
 	defer src.Close()
@@ -40,4 +40,15 @@ func TestSaveFile(t *testing.T) {
 	destHash := xxhash3.Hash(destBytes)
 
 	require.Equal(t, srcHash, destHash)
+}
+
+func TestSaveFile(t *testing.T) {
+	src, err := os.Open(srcFile)
+	require.Nil(t, err)
+	defer src.Close()
+
+	p, err := SaveFile(src, srcFile)
+	require.Nil(t, err)
+
+	require.NotEqual(t, p, "")
 }
