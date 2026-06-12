@@ -1,0 +1,11 @@
+build
+test_dir
+
+.env
+
+*.exe
+*.dll
+*.so
+*.dylib
+*.out
+*.txt
