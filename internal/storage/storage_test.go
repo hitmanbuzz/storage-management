@@ -7,7 +7,6 @@ import (
 	"storage-management/internal/util"
 	"testing"
 
-	"github.com/bytedance/gopkg/util/xxhash3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,7 +23,7 @@ func TestCompareHash(t *testing.T) {
 
 	src.Seek(0, io.SeekStart) // got me fucking here (Read method mutate the cursor)
 
-	srcHash := xxhash3.Hash(srcBytes)
+	srcHash := util.GetXhHash(srcBytes)
 
 	p, err := SaveFile(src, srcFile)
 	require.Nil(t, err)
@@ -37,7 +36,7 @@ func TestCompareHash(t *testing.T) {
 	_, err = dest.Read(destBytes)
 	require.Nil(t, err)
 
-	destHash := xxhash3.Hash(destBytes)
+	destHash := util.GetXhHash(destBytes)
 
 	require.Equal(t, srcHash, destHash)
 }
