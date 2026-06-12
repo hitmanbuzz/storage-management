@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log/slog"
+	"os"
 	"storage-management/internal/server"
 )
 
@@ -9,7 +11,13 @@ const (
 )
 
 func main() {
-	server := server.NewServer(IP_ADDR)
+	opts := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, opts))
+
+	server := server.NewServer(IP_ADDR, logger)
 	server.Routes()
 	server.Run()
 }

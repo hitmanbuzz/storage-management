@@ -2,7 +2,7 @@ package server
 
 import (
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"storage-management/internal/storage"
 	"storage-management/internal/util"
@@ -12,11 +12,13 @@ import (
 
 type route struct {
 	engine *gin.Engine
+	logger *slog.Logger
 }
 
-func newRoutes(engine *gin.Engine) *route {
+func newRoutes(engine *gin.Engine, logger *slog.Logger) *route {
 	return &route{
 		engine: engine,
+		logger: logger,
 	}
 }
 
@@ -25,10 +27,14 @@ func (r *route) Upload(ginCtx *gin.Context) {
 
 	mr, err := ginCtx.Request.MultipartReader()
 	if err != nil {
-		log.Println("error reading upload file:", err)
-		ginCtx.JSON(http.StatusBadRequest, gin.H{"status": "not multipart"})
+		r.logger.Error("error reading", "upload file", err)
+		ginCtx.JSON(http.StatusBadRequest, gin.H{"status": "expect multipart"})
 		return
 	}
+
+	var username string
+	var totalFileSize int64
+	isUpload := false
 
 	for {
 		part, err := mr.NextPart()
@@ -37,6 +43,7 @@ func (r *route) Upload(ginCtx *gin.Context) {
 		}
 
 		if err != nil {
+			r.logger.Error("error", "reading part", err)
 			ginCtx.JSON(http.StatusInternalServerError, gin.H{"status": "multipart error"})
 			return
 		}
@@ -53,11 +60,19 @@ func (r *route) Upload(ginCtx *gin.Context) {
 			userByte, err := io.ReadAll(part)
 			part.Close()
 			if err != nil {
-				break
+				r.logger.Error("error", "failed to read username", err)
+				return
 			}
 
-			username := string(userByte)
-			log.Println("Upload User:", username)
+			username = string(userByte)
+
+			if username == "" {
+				r.logger.Error("username is empty")
+				ginCtx.JSON(http.StatusBadRequest, gin.H{"status": "username is empty"})
+				return
+			}
+
+			r.logger.Info("uploaded user", "name", username)
 		case "file":
 			fileName := part.FileName()
 			if fileName == "" {
@@ -65,19 +80,30 @@ func (r *route) Upload(ginCtx *gin.Context) {
 				continue
 			}
 
-			writeSize, subPath, err := storage.SaveFile(part, fileName)
+			writeSize, fullPath, err := storage.SaveFile(part, fileName)
 			part.Close()
 			if err != nil {
-				log.Println(err)
-				ginCtx.String(http.StatusInternalServerError, "write failed")
+				r.logger.Error("error", "upload file chunk", err)
+				ginCtx.JSON(http.StatusInternalServerError, gin.H{"status": "failed to upload file chunk"})
 				return
 			}
 
-			log.Printf("FILE SAVED: %d | %s/%s\n", writeSize, util.BASE_PATH, subPath)
+			totalFileSize += writeSize
+			isUpload = true
+			r.logger.Info("saved file chunk", "size", writeSize, "path", fullPath)
 		default:
 			part.Close()
 		}
 	}
 
-	ginCtx.Status(200)
+	if !isUpload {
+		r.logger.Error("error to upload file")
+		ginCtx.JSON(http.StatusBadRequest, gin.H{"status": "failed to upload file"})
+		return
+	}
+
+	ginCtx.JSON(http.StatusOK, gin.H{
+		"status":   "ok",
+		"username": username,
+	})
 }
