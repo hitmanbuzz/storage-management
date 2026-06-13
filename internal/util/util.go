@@ -36,7 +36,7 @@ func CompareShaHash(a, b string) bool {
 func GetExtension(fileName string) (string, bool) {
 	ext := filepath.Ext(fileName)
 	if ext == "" {
-		return "unknown", false
+		return "", false
 	} else {
 		return ext, true
 	}

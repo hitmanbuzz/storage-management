@@ -32,13 +32,15 @@ func (r *route) Upload(ginCtx *gin.Context) {
 		return
 	}
 
-	var username string
-	var totalFileSize int64
-	isUpload := false
+	upload := storage.NewUpload()
 
 	for {
 		part, err := mr.NextPart()
 		if err == io.EOF {
+			if upload.CurrFile != nil {
+				r.logger.Debug("eof reached", "add file", upload.CurrFile.Name)
+				upload.AddFile(upload.CurrFile)
+			}
 			break
 		}
 
@@ -46,6 +48,13 @@ func (r *route) Upload(ginCtx *gin.Context) {
 			r.logger.Error("error", "reading part", err)
 			ginCtx.JSON(http.StatusInternalServerError, gin.H{"status": "multipart error"})
 			return
+		}
+
+		if upload.CurrFile != nil {
+			if upload.CurrFile.IsErr {
+				upload.AddFile(upload.CurrFile)
+				upload.CurrFile = nil
+			}
 		}
 
 		formName := part.FormName()
@@ -64,7 +73,7 @@ func (r *route) Upload(ginCtx *gin.Context) {
 				return
 			}
 
-			username = string(userByte)
+			username := string(userByte)
 
 			if username == "" {
 				r.logger.Error("username is empty")
@@ -72,7 +81,13 @@ func (r *route) Upload(ginCtx *gin.Context) {
 				return
 			}
 
+			if upload.User.Name == "" {
+				upload.SetUsername(username)
+			}
+
 			r.logger.Info("uploaded user", "name", username)
+		case "token":
+			// TODO: handle token
 		case "file":
 			fileName := part.FileName()
 			if fileName == "" {
@@ -80,30 +95,32 @@ func (r *route) Upload(ginCtx *gin.Context) {
 				continue
 			}
 
+			ext, _ := util.GetExtension(fileName)
+
+			if upload.CurrFile == nil {
+				upload.CurrFile = storage.NewFile(fileName, ext)
+				r.logger.Debug("update current file from nil", "file", fileName)
+			} else if upload.CurrFile.Name != fileName {
+				upload.AddFile(upload.CurrFile)
+				upload.CurrFile = storage.NewFile(fileName, ext)
+			}
+
 			writeSize, fullPath, err := storage.SaveFile(part, fileName)
 			part.Close()
 			if err != nil {
+				upload.CurrFile.IsErr = true
+				upload.CurrFile.Status = false
 				r.logger.Error("error", "upload file chunk", err)
 				ginCtx.JSON(http.StatusInternalServerError, gin.H{"status": "failed to upload file chunk"})
-				return
+				continue
 			}
 
-			totalFileSize += writeSize
-			isUpload = true
+			upload.CurrFile.Size += writeSize
 			r.logger.Info("saved file chunk", "size", writeSize, "path", fullPath)
 		default:
 			part.Close()
 		}
 	}
 
-	if !isUpload {
-		r.logger.Error("error to upload file")
-		ginCtx.JSON(http.StatusBadRequest, gin.H{"status": "failed to upload file"})
-		return
-	}
-
-	ginCtx.JSON(http.StatusOK, gin.H{
-		"status":   "ok",
-		"username": username,
-	})
+	ginCtx.JSON(http.StatusOK, upload)
 }
