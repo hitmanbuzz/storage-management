@@ -3,9 +3,12 @@ package util
 import (
 	"crypto/sha512"
 	"encoding/hex"
+	"fmt"
+	"log/slog"
 	"path/filepath"
 
 	"github.com/bytedance/gopkg/util/xxhash3"
+	"github.com/gin-gonic/gin"
 )
 
 const MAX_REQUEST_SIZE = 10 << 30 // 10 GB
@@ -40,4 +43,27 @@ func GetExtension(fileName string) (string, bool) {
 	} else {
 		return ext, true
 	}
+}
+
+func ErrToString(msg string, err error) string {
+	return fmt.Errorf("%s: %w", msg, err).Error()
+}
+
+type ErrorResponse struct {
+	errStatusCode int            // the response status code type
+	errStatusMsg  map[string]any // for sending out for response
+	errLogMsg     string         // for logging
+}
+
+func NewErrResponse(code int, errStatusMsg map[string]any, logMsg string) *ErrorResponse {
+	return &ErrorResponse{
+		errStatusCode: code,
+		errStatusMsg:  errStatusMsg,
+		errLogMsg:     logMsg,
+	}
+}
+
+func (er *ErrorResponse) Do(ginCtx *gin.Context, logger *slog.Logger) {
+	logger.Error(er.errLogMsg)
+	ginCtx.JSON(er.errStatusCode, er.errStatusMsg)
 }

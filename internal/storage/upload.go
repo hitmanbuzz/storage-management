@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -85,7 +84,7 @@ func NewHandleUpload(mr *multipart.Reader, logger *slog.Logger) *HandleUpload {
 	}
 }
 
-func (hu *HandleUpload) Do(ginCtx *gin.Context) {
+func (hu *HandleUpload) Do(ginCtx *gin.Context) bool {
 	for {
 		part, err := hu.reader.NextPart()
 		if err == io.EOF {
@@ -115,31 +114,45 @@ func (hu *HandleUpload) Do(ginCtx *gin.Context) {
 			continue
 		}
 
-		hu.HandleForm(ginCtx, form, part)
+		errResponse := hu.HandleForm(ginCtx, form, part)
+		if errResponse != nil {
+			errResponse.Do(ginCtx, hu.logger)
+			return false
+		}
 	}
+
+	return true
 }
 
-func (hu *HandleUpload) HandleForm(ginCtx *gin.Context, formName string, part *multipart.Part) {
+func (hu *HandleUpload) HandleForm(ginCtx *gin.Context, formName string, part *multipart.Part) *util.ErrorResponse {
 	switch formName {
 	case "user":
-		hu.HandleUser(ginCtx, part)
+		err := hu.HandleUser(ginCtx, part)
+		return err
 	case "file":
-		hu.HandleFile(ginCtx, part)
+		err := hu.HandleFile(ginCtx, part)
+		return err
 	}
+	return nil
 }
 
-func (hu *HandleUpload) HandleUser(ginCtx *gin.Context, part *multipart.Part) {
+func (hu *HandleUpload) HandleUser(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
 	userName, err := hu.GetUser(part)
 	part.Close()
 	if err != nil {
-		hu.logger.Error("error", "failed to read username", err)
-		return
+		return util.NewErrResponse(
+			http.StatusTeapot,
+			gin.H{"status": "failed reading username"},
+			err.Error(),
+		)
 	}
 
 	if len(userName) == 0 {
-		hu.logger.Error("username is empty")
-		ginCtx.JSON(http.StatusBadRequest, gin.H{"status": "username is empty"})
-		return
+		return util.NewErrResponse(
+			http.StatusBadRequest,
+			gin.H{"status": "username is empty"},
+			"username is empty",
+		)
 	}
 
 	if len(hu.upload.User.Name) == 0 {
@@ -147,14 +160,14 @@ func (hu *HandleUpload) HandleUser(ginCtx *gin.Context, part *multipart.Part) {
 	}
 
 	hu.logger.Info("uploaded user", "name", userName)
+	return nil
 }
 
-func (hu *HandleUpload) HandleFile(ginCtx *gin.Context, part *multipart.Part) {
+func (hu *HandleUpload) HandleFile(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
 	fileName, err := hu.GetFile(part)
 	if err != nil {
-		hu.logger.Warn("empty filename")
 		part.Close()
-		return
+		return util.NewErrResponse(http.StatusBadRequest, gin.H{"status": "empty filename"}, "empty filename")
 	}
 
 	ext, _ := util.GetExtension(fileName)
@@ -170,47 +183,18 @@ func (hu *HandleUpload) HandleFile(ginCtx *gin.Context, part *multipart.Part) {
 	if err != nil {
 		hu.upload.CurrFile.IsErr = true
 		hu.upload.CurrFile.Status = false
-		hu.logger.Error("error", "upload file chunk", err)
-		ginCtx.JSON(http.StatusInternalServerError, gin.H{"status": "failed to upload file chunk"})
-		return
+		return util.NewErrResponse(
+			http.StatusInternalServerError,
+			gin.H{"status": "failed to upload file chunk"},
+			util.ErrToString("error uploading file chunk", err),
+		)
 	}
 
 	hu.upload.CurrFile.Size += writeSize
-	hu.logger.Info("saved file chunk", "size", writeSize, "path", fullPath)
+	hu.logger.Info("saved file", "size", writeSize, "path", fullPath)
+	return nil
 }
 
 func (hu *HandleUpload) HandleAuth() {
 	// TODO: Still need to think how a simple auth need to be implemented
-}
-
-// --- Helper Methods ---
-
-func (hu *HandleUpload) GetForm(part *multipart.Part) (string, error) {
-	formName := part.FormName()
-	if len(formName) == 0 {
-		return "", fmt.Errorf("form name is empty")
-	}
-	return formName, nil
-}
-
-func (hu *HandleUpload) GetFile(part *multipart.Part) (string, error) {
-	fileName := part.FileName()
-	if len(fileName) == 0 {
-		return "", fmt.Errorf("file name is empty")
-	}
-	return fileName, nil
-}
-
-func (hu *HandleUpload) GetUser(part *multipart.Part) (string, error) {
-	userByte, err := io.ReadAll(part)
-	part.Close()
-	if err != nil {
-		return "", err
-	}
-
-	return string(userByte), nil
-}
-
-func (hu *HandleUpload) GetUpload() *Upload {
-	return hu.upload
 }
