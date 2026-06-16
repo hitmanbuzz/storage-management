@@ -47,6 +47,14 @@ func (a *appState) Run(pctx context.Context) error {
 		return nil
 	})
 
+	// handle database
+	g.Go(func() error {
+		if err := a.db.Run(ctx); err != nil {
+			return fmt.Errorf("database crashed: %w", err)
+		}
+		return nil
+	})
+
 	// handle server shutdown
 	g.Go(func() error {
 		<-ctx.Done()

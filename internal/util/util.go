@@ -14,6 +14,7 @@ import (
 const MAX_REQUEST_SIZE = 10 << 30 // 10 GB
 const BASE_PATH = "test_dir"
 const MAX_BYTE_READ = 4096 // 4KB
+const MAX_DB_PING = 3
 
 // sha512
 func GetShaHash(b []byte) string {
