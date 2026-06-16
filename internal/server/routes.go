@@ -31,7 +31,7 @@ func (r *route) Upload(ginCtx *gin.Context) {
 		return
 	}
 
-	upload := storage.NewHandleUpload(mr, r.logger)
+	upload := storage.NewUploadHandler(mr, r.logger)
 	status := upload.Do(ginCtx)
 	if status {
 		ginCtx.JSON(http.StatusOK, upload.GetUpload())

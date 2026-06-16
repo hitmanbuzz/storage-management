@@ -49,42 +49,25 @@ func (u *Upload) SetUsername(name string) {
 	u.User.Name = name
 }
 
-func (u *Upload) SetToken(token string) {
-	u.User.Token = token
-}
-
 func (u *Upload) AddFile(file *File) {
 	u.Files = append(u.Files, file)
 }
 
-func (u *Upload) UpdateCurrFile(file *File) {
-	if u.CurrFile == nil {
-		u.CurrFile = file
-		return
-	}
-
-	if u.CurrFile.Name != file.Name {
-		u.AddFile(u.CurrFile)
-		u.CurrFile = file
-		return
-	}
-}
-
-type HandleUpload struct {
+type UploadHandler struct {
 	reader *multipart.Reader
 	upload *Upload
 	logger *slog.Logger
 }
 
-func NewHandleUpload(mr *multipart.Reader, logger *slog.Logger) *HandleUpload {
-	return &HandleUpload{
+func NewUploadHandler(mr *multipart.Reader, logger *slog.Logger) *UploadHandler {
+	return &UploadHandler{
 		reader: mr,
 		upload: NewUpload(),
 		logger: logger,
 	}
 }
 
-func (hu *HandleUpload) Do(ginCtx *gin.Context) bool {
+func (hu *UploadHandler) Do(ginCtx *gin.Context) bool {
 	for {
 		part, err := hu.reader.NextPart()
 		if err == io.EOF {
@@ -124,7 +107,7 @@ func (hu *HandleUpload) Do(ginCtx *gin.Context) bool {
 	return true
 }
 
-func (hu *HandleUpload) HandleForm(ginCtx *gin.Context, formName string, part *multipart.Part) *util.ErrorResponse {
+func (hu *UploadHandler) HandleForm(ginCtx *gin.Context, formName string, part *multipart.Part) *util.ErrorResponse {
 	switch formName {
 	case "user":
 		err := hu.HandleUser(ginCtx, part)
@@ -136,7 +119,7 @@ func (hu *HandleUpload) HandleForm(ginCtx *gin.Context, formName string, part *m
 	return nil
 }
 
-func (hu *HandleUpload) HandleUser(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
+func (hu *UploadHandler) HandleUser(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
 	userName, err := hu.GetUser(part)
 	part.Close()
 	if err != nil {
@@ -163,7 +146,7 @@ func (hu *HandleUpload) HandleUser(ginCtx *gin.Context, part *multipart.Part) *u
 	return nil
 }
 
-func (hu *HandleUpload) HandleFile(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
+func (hu *UploadHandler) HandleFile(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
 	fileName, err := hu.GetFile(part)
 	if err != nil {
 		part.Close()
@@ -195,6 +178,6 @@ func (hu *HandleUpload) HandleFile(ginCtx *gin.Context, part *multipart.Part) *u
 	return nil
 }
 
-func (hu *HandleUpload) HandleAuth() {
+func (hu *UploadHandler) HandleAuth() {
 	// TODO: Still need to think how a simple auth need to be implemented
 }

@@ -8,7 +8,7 @@ import (
 	"mime/multipart"
 )
 
-func (hu *HandleUpload) GetForm(part *multipart.Part) (string, error) {
+func (hu *UploadHandler) GetForm(part *multipart.Part) (string, error) {
 	formName := part.FormName()
 	if len(formName) == 0 {
 		return "", fmt.Errorf("form name is empty")
@@ -16,7 +16,7 @@ func (hu *HandleUpload) GetForm(part *multipart.Part) (string, error) {
 	return formName, nil
 }
 
-func (hu *HandleUpload) GetFile(part *multipart.Part) (string, error) {
+func (hu *UploadHandler) GetFile(part *multipart.Part) (string, error) {
 	fileName := part.FileName()
 	if len(fileName) == 0 {
 		return "", fmt.Errorf("file name is empty")
@@ -24,7 +24,7 @@ func (hu *HandleUpload) GetFile(part *multipart.Part) (string, error) {
 	return fileName, nil
 }
 
-func (hu *HandleUpload) GetUser(part *multipart.Part) (string, error) {
+func (hu *UploadHandler) GetUser(part *multipart.Part) (string, error) {
 	userByte, err := io.ReadAll(part)
 	part.Close()
 	if err != nil {
@@ -34,6 +34,6 @@ func (hu *HandleUpload) GetUser(part *multipart.Part) (string, error) {
 	return string(userByte), nil
 }
 
-func (hu *HandleUpload) GetUpload() *Upload {
+func (hu *UploadHandler) GetUpload() *Upload {
 	return hu.upload
 }
