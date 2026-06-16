@@ -35,6 +35,11 @@ func (d *DatabaseHandler) connect(ctx context.Context) error {
 	}
 
 	d.pool = pool
+	if err = d.CheckHealth(ctx, util.MAX_DB_PING); err != nil {
+		d.logger.Error("database connection", "status", "failed", "error", err)
+		return err
+	}
+
 	d.logger.Debug("database connection", "status", "success")
 	return nil
 }
