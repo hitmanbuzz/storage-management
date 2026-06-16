@@ -1,36 +1,45 @@
 package server
 
 import (
-	"log"
 	"log/slog"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-type server struct {
-	logger  *slog.Logger
-	ip_addr string
-	engine  *gin.Engine
+type Server struct {
+	logger     *slog.Logger
+	ip_addr    string
+	engine     *gin.Engine
+	httpServer *http.Server
 }
 
-func NewServer(ip_addr string, logger *slog.Logger) *server {
-	return &server{
-		logger:  logger,
-		ip_addr: ip_addr,
-		engine:  gin.Default(),
+func NewServer(ip_addr string, logger *slog.Logger) *Server {
+	engine := gin.Default()
+	server := &http.Server{
+		Addr:    ip_addr,
+		Handler: engine,
+	}
+
+	return &Server{
+		logger:     logger,
+		ip_addr:    ip_addr,
+		engine:     engine,
+		httpServer: server,
 	}
 }
 
-func (s *server) Routes() {
+func (s *Server) Routes() {
 	routes := newRoutes(s.engine, s.logger)
 	s.engine.POST("/upload", routes.Upload)
 }
 
-func (s *server) Run() {
-	err := s.engine.Run(s.ip_addr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func (s *Server) Run() error {
 	s.logger.Debug("server running", "ip", s.ip_addr)
+	err := s.httpServer.ListenAndServe()
+	return err
+}
+
+func (s *Server) GetHttpServer() *http.Server {
+	return s.httpServer
 }
