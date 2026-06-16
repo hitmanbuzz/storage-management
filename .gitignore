@@ -2,6 +2,7 @@ build
 test_dir
 
 .env
+docker-compose.yml
 
 *.exe
 *.dll
