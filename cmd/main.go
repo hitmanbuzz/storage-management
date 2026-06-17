@@ -12,10 +12,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const (
-	IP_ADDR = "0.0.0.0:6969"
-)
-
 func main() {
 	err := godotenv.Load()
 	if err != nil {
