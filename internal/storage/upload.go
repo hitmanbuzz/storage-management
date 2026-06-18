@@ -172,6 +172,8 @@ func (hu *UploadHandler) HandleFile(ginCtx *gin.Context, part *multipart.Part) *
 		)
 	}
 
+	// TODO: find the `headerBuf` xxhash value within the database
+
 	f, err := SaveFile(headerBuf, part, fileName)
 	part.Close()
 	if err != nil {

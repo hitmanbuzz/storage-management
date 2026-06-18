@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -60,7 +59,6 @@ func SaveFile(headerBytes []byte, src_data io.Reader, src_name string) (FileStor
 			return FileStorage{}, err
 		}
 		totalWriteSize += int64(n)
-		fmt.Println("Total Write Size:", int64(n))
 	}
 
 	copiedSize, err := io.Copy(dst, src_data)
@@ -69,7 +67,6 @@ func SaveFile(headerBytes []byte, src_data io.Reader, src_name string) (FileStor
 		return FileStorage{}, err
 	}
 
-	fmt.Println("Copy Size:", copiedSize)
 	totalWriteSize += copiedSize
 	return NewFileStorage(fileName, ext, fullPath, totalWriteSize, headerBytes), nil
 }
