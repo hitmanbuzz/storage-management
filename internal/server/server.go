@@ -36,6 +36,7 @@ func (s *Server) Routes() {
 
 func (s *Server) Run() error {
 	s.logger.Debug("server running", "ip", s.ip_addr)
+	s.Routes()
 	err := s.httpServer.ListenAndServe()
 	return err
 }

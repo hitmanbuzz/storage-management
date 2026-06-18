@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"storage-management/internal/util"
 )
 
 func (hu *UploadHandler) GetForm(part *multipart.Part) (string, error) {
@@ -36,4 +37,15 @@ func (hu *UploadHandler) GetUser(part *multipart.Part) (string, error) {
 
 func (hu *UploadHandler) GetUpload() *Upload {
 	return hu.upload
+}
+
+// read the first provided bytes from the upload file (before saving it)
+func (hu *UploadHandler) ReadHeader(part *multipart.Part) ([]byte, error) {
+	headerBuf := make([]byte, util.MAX_BYTE_READ)
+	n, err := io.ReadFull(part, headerBuf)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return headerBuf, err
+	}
+
+	return headerBuf[:n], nil
 }

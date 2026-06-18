@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -9,7 +10,25 @@ import (
 	"github.com/google/uuid"
 )
 
-func SaveFile(src_data io.Reader, src_name string) (int64, string, error) {
+type FileStorage struct {
+	Filename string
+	Ext      string
+	Path     string
+	Size     int64
+	Header   []byte
+}
+
+func NewFileStorage(fName, ext, path string, size int64, header []byte) FileStorage {
+	return FileStorage{
+		Filename: fName,
+		Ext:      ext,
+		Size:     size,
+		Path:     path,
+		Header:   header,
+	}
+}
+
+func SaveFile(headerBytes []byte, src_data io.Reader, src_name string) (FileStorage, error) {
 	var fileName string
 
 	ext, hasExt := util.GetExtension(src_name)
@@ -28,15 +47,29 @@ func SaveFile(src_data io.Reader, src_name string) (int64, string, error) {
 	os.MkdirAll(dir, 0750)
 	dst, err := os.Create(fullPath)
 	if err != nil {
-		return 0, "", err
+		return FileStorage{}, err
 	}
 	defer dst.Close()
-	var writeSize int64
 
-	if writeSize, err = io.Copy(dst, src_data); err != nil {
-		os.Remove(fullPath)
-		return 0, "", err
+	var totalWriteSize int64
+
+	if len(headerBytes) > 0 {
+		n, err := dst.Write(headerBytes)
+		if err != nil {
+			os.Remove(fullPath)
+			return FileStorage{}, err
+		}
+		totalWriteSize += int64(n)
+		fmt.Println("Total Write Size:", int64(n))
 	}
 
-	return writeSize, filepath.Join(util.BASE_PATH, subDir, fileName), nil // return the path without the `BASE_PATH`
+	copiedSize, err := io.Copy(dst, src_data)
+	if err != nil {
+		os.Remove(fullPath)
+		return FileStorage{}, err
+	}
+
+	fmt.Println("Copy Size:", copiedSize)
+	totalWriteSize += copiedSize
+	return NewFileStorage(fileName, ext, fullPath, totalWriteSize, headerBytes), nil
 }

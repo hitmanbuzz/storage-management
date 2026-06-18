@@ -161,7 +161,18 @@ func (hu *UploadHandler) HandleFile(ginCtx *gin.Context, part *multipart.Part) *
 		hu.upload.CurrFile = NewFile(fileName, ext)
 	}
 
-	writeSize, fullPath, err := SaveFile(part, fileName)
+	headerBuf, err := hu.ReadHeader(part)
+	if err != nil {
+		hu.upload.CurrFile.IsErr = true
+		hu.upload.CurrFile.Status = false
+		return util.NewErrResponse(
+			http.StatusInternalServerError,
+			gin.H{"status": "failed to read file header"},
+			util.ErrToString("error reading file header", err),
+		)
+	}
+
+	f, err := SaveFile(headerBuf, part, fileName)
 	part.Close()
 	if err != nil {
 		hu.upload.CurrFile.IsErr = true
@@ -173,8 +184,10 @@ func (hu *UploadHandler) HandleFile(ginCtx *gin.Context, part *multipart.Part) *
 		)
 	}
 
-	hu.upload.CurrFile.Size += writeSize
-	hu.logger.Info("saved file", "size", writeSize, "path", fullPath)
+	hu.logger.Debug("total file size", "size", f.Size)
+
+	hu.upload.CurrFile.Size = f.Size
+	hu.logger.Info("saved file", "size", f.Size, "path", f.Path)
 	return nil
 }
 
