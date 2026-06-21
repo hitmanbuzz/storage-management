@@ -3,6 +3,7 @@ package server
 import (
 	"log/slog"
 	"net/http"
+	"storage-management/internal/database"
 
 	"github.com/gin-gonic/gin"
 )
@@ -11,10 +12,11 @@ type Server struct {
 	logger     *slog.Logger
 	ip_addr    string
 	engine     *gin.Engine
+	db         *database.DatabaseHandler
 	httpServer *http.Server
 }
 
-func NewServer(ip_addr string, logger *slog.Logger) *Server {
+func NewServer(ip_addr string, db *database.DatabaseHandler, logger *slog.Logger) *Server {
 	engine := gin.Default()
 	server := &http.Server{
 		Addr:    ip_addr,
@@ -25,12 +27,13 @@ func NewServer(ip_addr string, logger *slog.Logger) *Server {
 		logger:     logger,
 		ip_addr:    ip_addr,
 		engine:     engine,
+		db:         db,
 		httpServer: server,
 	}
 }
 
 func (s *Server) Routes() {
-	routes := newRoutes(s.engine, s.logger)
+	routes := newRoutes(s.engine, s.db, s.logger)
 	s.engine.POST("/upload", routes.Upload)
 }
 

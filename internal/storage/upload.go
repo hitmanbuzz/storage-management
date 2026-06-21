@@ -1,30 +1,21 @@
 package storage
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
+	"storage-management/internal/auth"
+	"storage-management/internal/database"
 	"storage-management/internal/util"
 
 	"github.com/gin-gonic/gin"
 )
 
-type User struct {
-	Name  string `json:"username"`
-	Token string `json:"-"`
-}
-
-type File struct {
-	Name   string `json:"filename"`
-	Size   int64  `json:"filesize"`
-	Ext    string `json:"-"`
-	IsErr  bool   `json:"-"`
-	Status bool   `json:"status"`
-}
-
-func NewFile(name string, ext string) *File {
-	return &File{
+func NewFile(name string, ext string) *util.File {
+	return &util.File{
 		Name:   name,
 		Size:   0,
 		Ext:    ext,
@@ -34,14 +25,14 @@ func NewFile(name string, ext string) *File {
 }
 
 type Upload struct {
-	User     User    `json:"user"`
-	Files    []*File `json:"files"`
-	CurrFile *File   `json:"-"`
+	User     util.User    `json:"user"`
+	Files    []*util.File `json:"files"`
+	CurrFile *util.File   `json:"-"`
 }
 
 func NewUpload() *Upload {
 	return &Upload{
-		Files: make([]*File, 0),
+		Files: make([]*util.File, 0),
 	}
 }
 
@@ -49,20 +40,22 @@ func (u *Upload) SetUsername(name string) {
 	u.User.Name = name
 }
 
-func (u *Upload) AddFile(file *File) {
+func (u *Upload) AddFile(file *util.File) {
 	u.Files = append(u.Files, file)
 }
 
 type UploadHandler struct {
 	reader *multipart.Reader
 	upload *Upload
+	db     *database.DatabaseHandler
 	logger *slog.Logger
 }
 
-func NewUploadHandler(mr *multipart.Reader, logger *slog.Logger) *UploadHandler {
+func NewUploadHandler(mr *multipart.Reader, db *database.DatabaseHandler, logger *slog.Logger) *UploadHandler {
 	return &UploadHandler{
 		reader: mr,
 		upload: NewUpload(),
+		db:     db,
 		logger: logger,
 	}
 }
@@ -112,6 +105,8 @@ func (hu *UploadHandler) HandleForm(ginCtx *gin.Context, formName string, part *
 	case "user":
 		err := hu.HandleUser(ginCtx, part)
 		return err
+	case "password":
+		// TODO: handle password
 	case "file":
 		err := hu.HandleFile(ginCtx, part)
 		return err
@@ -120,7 +115,7 @@ func (hu *UploadHandler) HandleForm(ginCtx *gin.Context, formName string, part *
 }
 
 func (hu *UploadHandler) HandleUser(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
-	userName, err := hu.GetUser(part)
+	username, err := hu.GetData(part)
 	part.Close()
 	if err != nil {
 		return util.NewErrResponse(
@@ -130,19 +125,52 @@ func (hu *UploadHandler) HandleUser(ginCtx *gin.Context, part *multipart.Part) *
 		)
 	}
 
-	if len(userName) == 0 {
+	if len(username) < util.MIN_USER_LEN || len(username) > util.MAX_USER_LEN {
 		return util.NewErrResponse(
 			http.StatusBadRequest,
-			gin.H{"status": "username is empty"},
-			"username is empty",
+			gin.H{"status": fmt.Sprintf("username should be %d - %d in length", util.MIN_USER_LEN, util.MAX_USER_LEN)},
+			"username length requirement is not met",
 		)
 	}
 
 	if len(hu.upload.User.Name) == 0 {
-		hu.upload.SetUsername(userName)
+		hu.upload.SetUsername(username)
 	}
 
-	hu.logger.Info("uploaded user", "name", userName)
+	hu.logger.Info("uploaded user", "name", username)
+	return nil
+}
+
+func (hu *UploadHandler) HandlePassword(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
+	password, err := hu.GetData(part)
+	part.Close()
+	if err != nil {
+		return util.NewErrResponse(
+			http.StatusTeapot,
+			gin.H{"status": "failed reading password"},
+			err.Error(),
+		)
+	}
+
+	if len(password) < util.MIN_PASS_LEN || len(password) > util.MAX_PASS_LEN {
+		return util.NewErrResponse(
+			http.StatusBadRequest,
+			gin.H{"status": fmt.Sprintf("password should be %d - %d in length", util.MIN_PASS_LEN, util.MAX_PASS_LEN)},
+			"password length requirement not met",
+		)
+	}
+
+	_, _, err = hu.db.IsUserExist(ginCtx.Request.Context(), hu.upload.User.Name)
+	if err != nil {
+		return util.NewErrResponse(
+			http.StatusNotFound,
+			gin.H{"status": "user not found"},
+			"user not found",
+		)
+	}
+
+	// TODO
+
 	return nil
 }
 

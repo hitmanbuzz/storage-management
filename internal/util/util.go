@@ -1,8 +1,6 @@
 package util
 
 import (
-	"crypto/sha512"
-	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -16,24 +14,55 @@ const BASE_PATH = "test_dir"
 const MAX_BYTE_READ = 4096 // 4KB
 const MAX_DB_PING = 3
 
-// sha512
-func GetShaHash(b []byte) string {
-	hashBytes := sha512.Sum512(b)
-	return hex.EncodeToString(hashBytes[:])
+// user
+const MIN_USER_LEN = 8
+const MAX_USER_LEN = 16
+
+// password
+const MIN_PASS_LEN = 8
+const MAX_PASS_LEN = 24
+
+type FileData struct {
+	Id          int64   `db:"id"`
+	Filename    string  `db:"filename"`
+	Extension   *string `db:"extension"`
+	Path        string  `db:"path"`
+	Size        int64   `db:"size"`
+	Hash        int64   `db:"hash"`
+	UploadedAt  string  `db:"uploaded_at"`
+	Group       *string `db:"file_group"`
+	Description *string `db:"file_desc"`
+	UserId      int32   `db:"user_id"`
 }
 
-// xxhash3
+type User struct {
+	Id   int32  `json:"user_id"`
+	Name string `json:"username"`
+}
+
+type File struct {
+	Name   string `json:"filename"`
+	Size   int64  `json:"filesize"`
+	Ext    string `json:"-"`
+	IsErr  bool   `json:"-"`
+	Status bool   `json:"status"`
+}
+
+type FileStorage struct {
+	Filename string
+	Ext      string
+	Path     string
+	Size     int64
+	Header   []byte
+}
+
+// compute xxhash3
 func GetXhHash(b []byte) uint64 {
 	return xxhash3.Hash(b)
 }
 
 // compare two xxhash3 hashes
 func CompareXhHash(a, b uint64) bool {
-	return a == b
-}
-
-// compare two sha hash (same as string comparison)
-func CompareShaHash(a, b string) bool {
 	return a == b
 }
 

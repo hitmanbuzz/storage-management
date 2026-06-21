@@ -30,7 +30,7 @@ func NewAppState(ctx context.Context, logger *slog.Logger) *appState {
 	}
 
 	return &appState{
-		server: server.NewServer(serverIP, logger),
+		server: server.NewServer(serverIP, db, logger),
 		db:     db,
 		logger: logger,
 	}

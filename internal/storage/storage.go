@@ -9,16 +9,8 @@ import (
 	"github.com/google/uuid"
 )
 
-type FileStorage struct {
-	Filename string
-	Ext      string
-	Path     string
-	Size     int64
-	Header   []byte
-}
-
-func NewFileStorage(fName, ext, path string, size int64, header []byte) FileStorage {
-	return FileStorage{
+func NewFileStorage(fName, ext, path string, size int64, header []byte) util.FileStorage {
+	return util.FileStorage{
 		Filename: fName,
 		Ext:      ext,
 		Size:     size,
@@ -27,7 +19,12 @@ func NewFileStorage(fName, ext, path string, size int64, header []byte) FileStor
 	}
 }
 
-func SaveFile(headerBytes []byte, src_data io.Reader, src_name string) (FileStorage, error) {
+type UserStorage struct {
+	Username string
+	Password string // hashed password
+}
+
+func SaveFile(headerBytes []byte, src_data io.Reader, src_name string) (util.FileStorage, error) {
 	var fileName string
 
 	ext, hasExt := util.GetExtension(src_name)
@@ -46,7 +43,7 @@ func SaveFile(headerBytes []byte, src_data io.Reader, src_name string) (FileStor
 	os.MkdirAll(dir, 0750)
 	dst, err := os.Create(fullPath)
 	if err != nil {
-		return FileStorage{}, err
+		return util.FileStorage{}, err
 	}
 	defer dst.Close()
 
@@ -56,7 +53,7 @@ func SaveFile(headerBytes []byte, src_data io.Reader, src_name string) (FileStor
 		n, err := dst.Write(headerBytes)
 		if err != nil {
 			os.Remove(fullPath)
-			return FileStorage{}, err
+			return util.FileStorage{}, err
 		}
 		totalWriteSize += int64(n)
 	}
@@ -64,7 +61,7 @@ func SaveFile(headerBytes []byte, src_data io.Reader, src_name string) (FileStor
 	copiedSize, err := io.Copy(dst, src_data)
 	if err != nil {
 		os.Remove(fullPath)
-		return FileStorage{}, err
+		return util.FileStorage{}, err
 	}
 
 	totalWriteSize += copiedSize
