@@ -1,17 +1,16 @@
 package storage
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
-	"storage-management/internal/auth"
 	"storage-management/internal/database"
 	"storage-management/internal/util"
 
 	"github.com/gin-gonic/gin"
+	"github.com/matthewhartstonge/argon2"
 )
 
 func NewFile(name string, ext string) *util.File {
@@ -38,6 +37,10 @@ func NewUpload() *Upload {
 
 func (u *Upload) SetUsername(name string) {
 	u.User.Name = name
+}
+
+func (u *Upload) SetUserId(id int32) {
+	u.User.Id = id
 }
 
 func (u *Upload) AddFile(file *util.File) {
@@ -106,7 +109,8 @@ func (hu *UploadHandler) HandleForm(ginCtx *gin.Context, formName string, part *
 		err := hu.HandleUser(ginCtx, part)
 		return err
 	case "password":
-		// TODO: handle password
+		err := hu.HandlePassword(ginCtx, part)
+		return err
 	case "file":
 		err := hu.HandleFile(ginCtx, part)
 		return err
@@ -114,6 +118,7 @@ func (hu *UploadHandler) HandleForm(ginCtx *gin.Context, formName string, part *
 	return nil
 }
 
+// FIX: this part should be handle in auth and not for upload
 func (hu *UploadHandler) HandleUser(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
 	username, err := hu.GetData(part)
 	part.Close()
@@ -141,6 +146,7 @@ func (hu *UploadHandler) HandleUser(ginCtx *gin.Context, part *multipart.Part) *
 	return nil
 }
 
+// FIX: this part should be handle in auth and not for upload
 func (hu *UploadHandler) HandlePassword(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
 	password, err := hu.GetData(part)
 	part.Close()
@@ -160,7 +166,7 @@ func (hu *UploadHandler) HandlePassword(ginCtx *gin.Context, part *multipart.Par
 		)
 	}
 
-	_, _, err = hu.db.IsUserExist(ginCtx.Request.Context(), hu.upload.User.Name)
+	userId, hashPass, err := hu.db.IsUserExist(ginCtx.Request.Context(), hu.upload.User.Name)
 	if err != nil {
 		return util.NewErrResponse(
 			http.StatusNotFound,
@@ -169,8 +175,24 @@ func (hu *UploadHandler) HandlePassword(ginCtx *gin.Context, part *multipart.Par
 		)
 	}
 
-	// TODO
+	ok, err := argon2.VerifyEncoded([]byte(password), []byte(hashPass))
+	if err != nil {
+		return util.NewErrResponse(
+			http.StatusInternalServerError,
+			gin.H{"status": "unable to do password verification"},
+			fmt.Sprintf("password verficiation failed: %v", err),
+		)
+	}
 
+	if !ok {
+		return util.NewErrResponse(
+			http.StatusNotFound,
+			gin.H{"status": "wrong password"},
+			"wrong password",
+		)
+	}
+
+	hu.upload.SetUserId(userId)
 	return nil
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// return (userId, hashPass, error)
 func (db *DatabaseHandler) IsUserExist(pctx context.Context, username string) (int32, string, error) {
 	ctx, cancel := context.WithTimeout(pctx, 3*time.Second)
 	defer cancel()
