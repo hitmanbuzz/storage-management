@@ -25,17 +25,6 @@ func (hu *UploadHandler) GetFile(part *multipart.Part) (string, error) {
 	return fileName, nil
 }
 
-// use for username and password
-func (hu *UploadHandler) GetData(part *multipart.Part) (string, error) {
-	userByte, err := io.ReadAll(part)
-	part.Close()
-	if err != nil {
-		return "", err
-	}
-
-	return string(userByte), nil
-}
-
 func (hu *UploadHandler) GetUpload() *Upload {
 	return hu.upload
 }

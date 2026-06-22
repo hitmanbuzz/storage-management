@@ -16,6 +16,13 @@ type AuthHandler struct {
 	Payload util.AuthPayload
 }
 
+func Encrypt(payload util.AuthPayload) util.AuthPayload {
+	argon := argon2.DefaultConfig()
+	encoded, _ := argon.HashEncoded([]byte(payload.Password))
+	result := util.NewAuthPayload(payload.Username, string(encoded))
+	return result
+}
+
 // return (nil, err) if username or password length requirement is not met
 func NewAuthHandler(payload util.AuthPayload) (*AuthHandler, error) {
 	if len(payload.Username) > util.MAX_USER_LEN || len(payload.Username) < util.MIN_USER_LEN {
