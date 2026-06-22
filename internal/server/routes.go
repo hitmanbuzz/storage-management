@@ -3,6 +3,7 @@ package server
 import (
 	"log/slog"
 	"net/http"
+	"storage-management/internal/auth"
 	"storage-management/internal/database"
 	"storage-management/internal/storage"
 	"storage-management/internal/util"
@@ -22,6 +23,46 @@ func newRoutes(engine *gin.Engine, db *database.DatabaseHandler, logger *slog.Lo
 		logger: logger,
 		db:     db,
 	}
+}
+
+// REFACTOR: can merge `Register` & `Login` as they pretty much have the same code
+
+func (r *route) Register(ginCtx *gin.Context) {
+	username := ginCtx.PostForm("username")
+	password := ginCtx.PostForm("password")
+
+	payload := util.NewAuthPayload(username, password)
+	newAuth, err := auth.NewAuthHandler(payload)
+	if err != nil {
+		r.logger.Error("payload length", "error", err.Error())
+		ginCtx.AbortWithStatusJSON(
+			http.StatusUnprocessableEntity,
+			gin.H{"status": err.Error()},
+		)
+		return
+	}
+
+	resp := newAuth.Register(ginCtx.Request.Context(), r.db)
+	resp.Do(ginCtx, r.logger)
+}
+
+func (r *route) Login(ginCtx *gin.Context) {
+	username := ginCtx.PostForm("username")
+	password := ginCtx.PostForm("password")
+
+	payload := util.NewAuthPayload(username, password)
+	newAuth, err := auth.NewAuthHandler(payload)
+	if err != nil {
+		r.logger.Error("payload length", "error", err.Error())
+		ginCtx.AbortWithStatusJSON(
+			http.StatusUnprocessableEntity,
+			gin.H{"status": err.Error()},
+		)
+		return
+	}
+
+	resp := newAuth.Login(ginCtx.Request.Context(), r.db)
+	resp.Do(ginCtx, r.logger)
 }
 
 func (r *route) Upload(ginCtx *gin.Context) {

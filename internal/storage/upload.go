@@ -10,7 +10,6 @@ import (
 	"storage-management/internal/util"
 
 	"github.com/gin-gonic/gin"
-	"github.com/matthewhartstonge/argon2"
 )
 
 func NewFile(name string, ext string) *util.File {
@@ -33,14 +32,6 @@ func NewUpload() *Upload {
 	return &Upload{
 		Files: make([]*util.File, 0),
 	}
-}
-
-func (u *Upload) SetUsername(name string) {
-	u.User.Name = name
-}
-
-func (u *Upload) SetUserId(id int32) {
-	u.User.Id = id
 }
 
 func (u *Upload) AddFile(file *util.File) {
@@ -105,95 +96,12 @@ func (hu *UploadHandler) Do(ginCtx *gin.Context) bool {
 
 func (hu *UploadHandler) HandleForm(ginCtx *gin.Context, formName string, part *multipart.Part) *util.ErrorResponse {
 	switch formName {
-	case "user":
-		err := hu.HandleUser(ginCtx, part)
-		return err
-	case "password":
-		err := hu.HandlePassword(ginCtx, part)
-		return err
 	case "file":
 		err := hu.HandleFile(ginCtx, part)
 		return err
+	default:
+		return util.NewErrResponse(http.StatusBadRequest, gin.H{"status": "invalid form"}, fmt.Sprintf("invalid form: %s", formName))
 	}
-	return nil
-}
-
-// FIX: this part should be handle in auth and not for upload
-func (hu *UploadHandler) HandleUser(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
-	username, err := hu.GetData(part)
-	part.Close()
-	if err != nil {
-		return util.NewErrResponse(
-			http.StatusTeapot,
-			gin.H{"status": "failed reading username"},
-			err.Error(),
-		)
-	}
-
-	if len(username) < util.MIN_USER_LEN || len(username) > util.MAX_USER_LEN {
-		return util.NewErrResponse(
-			http.StatusBadRequest,
-			gin.H{"status": fmt.Sprintf("username should be %d - %d in length", util.MIN_USER_LEN, util.MAX_USER_LEN)},
-			"username length requirement is not met",
-		)
-	}
-
-	if len(hu.upload.User.Name) == 0 {
-		hu.upload.SetUsername(username)
-	}
-
-	hu.logger.Info("uploaded user", "name", username)
-	return nil
-}
-
-// FIX: this part should be handle in auth and not for upload
-func (hu *UploadHandler) HandlePassword(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
-	password, err := hu.GetData(part)
-	part.Close()
-	if err != nil {
-		return util.NewErrResponse(
-			http.StatusTeapot,
-			gin.H{"status": "failed reading password"},
-			err.Error(),
-		)
-	}
-
-	if len(password) < util.MIN_PASS_LEN || len(password) > util.MAX_PASS_LEN {
-		return util.NewErrResponse(
-			http.StatusBadRequest,
-			gin.H{"status": fmt.Sprintf("password should be %d - %d in length", util.MIN_PASS_LEN, util.MAX_PASS_LEN)},
-			"password length requirement not met",
-		)
-	}
-
-	userId, hashPass, err := hu.db.IsUserExist(ginCtx.Request.Context(), hu.upload.User.Name)
-	if err != nil {
-		return util.NewErrResponse(
-			http.StatusNotFound,
-			gin.H{"status": "user not found"},
-			"user not found",
-		)
-	}
-
-	ok, err := argon2.VerifyEncoded([]byte(password), []byte(hashPass))
-	if err != nil {
-		return util.NewErrResponse(
-			http.StatusInternalServerError,
-			gin.H{"status": "unable to do password verification"},
-			fmt.Sprintf("password verficiation failed: %v", err),
-		)
-	}
-
-	if !ok {
-		return util.NewErrResponse(
-			http.StatusNotFound,
-			gin.H{"status": "wrong password"},
-			"wrong password",
-		)
-	}
-
-	hu.upload.SetUserId(userId)
-	return nil
 }
 
 func (hu *UploadHandler) HandleFile(ginCtx *gin.Context, part *multipart.Part) *util.ErrorResponse {
@@ -241,8 +149,4 @@ func (hu *UploadHandler) HandleFile(ginCtx *gin.Context, part *multipart.Part) *
 	hu.upload.CurrFile.Size = f.Size
 	hu.logger.Info("saved file", "size", f.Size, "path", f.Path)
 	return nil
-}
-
-func (hu *UploadHandler) HandleAuth() {
-	// TODO: Still need to think how a simple auth need to be implemented
 }

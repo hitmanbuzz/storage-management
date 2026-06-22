@@ -2,16 +2,12 @@ package database
 
 import (
 	"context"
-	"fmt"
-	"storage-management/internal/auth"
 	"storage-management/internal/util"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 // `payload` contains the hash password (different from the payload sent from client)
-func (db *DatabaseHandler) InsertUser(pctx context.Context, payload auth.AuthPayload) (util.User, error) {
+func (db *DatabaseHandler) InsertUser(pctx context.Context, payload util.AuthPayload) (util.User, error) {
 	ctx, cancel := context.WithTimeout(pctx, 3*time.Second)
 	defer cancel()
 
@@ -26,14 +22,7 @@ func (db *DatabaseHandler) InsertUser(pctx context.Context, payload auth.AuthPay
 	user.Name = payload.Username
 
 	err := db.pool.QueryRow(ctx, query, payload.Username, payload.Password).Scan(&user.Id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return user, fmt.Errorf("username already exist")
-		}
-		return user, err
-	}
-
-	return user, nil
+	return user, err
 }
 
 func (db *DatabaseHandler) InsertFile(pctx context.Context, f util.FileStorage, userId int32) (int64, error) {
@@ -50,9 +39,5 @@ func (db *DatabaseHandler) InsertFile(pctx context.Context, f util.FileStorage, 
 
 	var fileId int64
 	err := db.pool.QueryRow(ctx, query, f.Filename, f.Ext, f.Path, f.Size, initHash, nil, nil, userId).Scan(&fileId)
-	if err != nil {
-		return -1, err
-	}
-
-	return fileId, nil
+	return fileId, err
 }

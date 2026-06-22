@@ -3,8 +3,11 @@ package server
 import (
 	"log/slog"
 	"net/http"
+	"os"
 	"storage-management/internal/database"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,6 +21,9 @@ type Server struct {
 
 func NewServer(ip_addr string, db *database.DatabaseHandler, logger *slog.Logger) *Server {
 	engine := gin.Default()
+	store := cookie.NewStore([]byte(os.Getenv("COOKIE_KEY")))
+	engine.Use(sessions.Sessions("auth-session", store))
+
 	server := &http.Server{
 		Addr:    ip_addr,
 		Handler: engine,
@@ -35,6 +41,8 @@ func NewServer(ip_addr string, db *database.DatabaseHandler, logger *slog.Logger
 func (s *Server) Routes() {
 	routes := newRoutes(s.engine, s.db, s.logger)
 	s.engine.POST("/upload", routes.Upload)
+	s.engine.POST("/register", routes.Register)
+	s.engine.POST("/login", routes.Login)
 }
 
 func (s *Server) Run() error {

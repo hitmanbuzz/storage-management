@@ -15,7 +15,7 @@ const MAX_BYTE_READ = 4096 // 4KB
 const MAX_DB_PING = 3
 
 // user
-const MIN_USER_LEN = 8
+const MIN_USER_LEN = 4
 const MAX_USER_LEN = 16
 
 // password
@@ -54,6 +54,19 @@ type FileStorage struct {
 	Path     string
 	Size     int64
 	Header   []byte
+}
+
+// this is use for client as well as server side for hashing password
+type AuthPayload struct {
+	Username string
+	Password string // can be hash or not depending on its usage
+}
+
+func NewAuthPayload(username, password string) AuthPayload {
+	return AuthPayload{
+		Username: username,
+		Password: password,
+	}
 }
 
 // compute xxhash3
