@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"encoding/binary"
 	"storage-management/internal/util"
 	"time"
 )
@@ -33,6 +34,10 @@ func (db *DatabaseHandler) InsertFile(pctx context.Context, f util.FileStorage, 
 	defer cancel()
 
 	initHash := util.GetXhHash(f.Header)
+	db.logger.Debug("file hash", "hash", initHash)
+
+	hashBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(hashBytes, initHash)
 
 	query := `
 		INSERT into files (filename, extension, path, size, hash, file_group, file_desc, user_id)
@@ -41,7 +46,10 @@ func (db *DatabaseHandler) InsertFile(pctx context.Context, f util.FileStorage, 
 	`
 
 	var fileId int64
-	err := db.pool.QueryRow(ctx, query, f.Filename, f.Ext, f.Path, f.Size, initHash, nil, nil, userId).Scan(&fileId)
+	err := db.pool.QueryRow(
+		ctx, query,
+		f.Filename, f.Ext, f.Path, f.Size, hashBytes, nil, nil, userId,
+	).Scan(&fileId)
 	return fileId, err
 }
 
@@ -59,15 +67,18 @@ func (db *DatabaseHandler) IsUserExist(pctx context.Context, username string) (i
 }
 
 // return (fileId, filePath, error)
-func (db *DatabaseHandler) IsHashExist(pctx context.Context, targetHash int64, targetSize int64) (int64, string, error) {
+func (db *DatabaseHandler) IsHashExist(pctx context.Context, targetHash uint64) (int64, string, error) {
 	ctx, cancel := context.WithTimeout(pctx, 3*time.Second)
 	defer cancel()
-
-	query := `SELECT id, path FROM files WHERE hash = $1 AND size >= $2`
 
 	var fileId int64
 	var filePath string
 
-	err := db.pool.QueryRow(ctx, query, targetHash, targetSize).Scan(&fileId, &filePath)
+	hashBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(hashBytes, targetHash)
+
+	query := `SELECT id, path FROM files WHERE hash = $1 LIMIT 1`
+
+	err := db.pool.QueryRow(ctx, query, hashBytes).Scan(&fileId, &filePath)
 	return fileId, filePath, err
 }

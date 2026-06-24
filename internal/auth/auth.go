@@ -44,7 +44,7 @@ func (ah *AuthHandler) Register(ctx context.Context, db *database.DatabaseHandle
 		switch err {
 		case pgx.ErrNoRows:
 			return -1, util.NewErrResponse(
-				http.StatusNotFound,
+				http.StatusConflict,
 				gin.H{"status": "user already exist"},
 				fmt.Sprintf("user already exist: username = %s", ah.Payload.Username),
 			)

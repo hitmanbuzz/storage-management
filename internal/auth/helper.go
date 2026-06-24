@@ -32,3 +32,12 @@ func AuthMiddleware(ginCtx *gin.Context) {
 	ginCtx.Set("userID", userId)
 	ginCtx.Next()
 }
+
+func GetUserId(ginCtx *gin.Context) (int32, bool) {
+	userId, ok := ginCtx.Get("userID")
+	if !ok {
+		return -1, false
+	}
+
+	return userId.(int32), ok
+}

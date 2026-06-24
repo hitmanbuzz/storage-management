@@ -6,10 +6,13 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"storage-management/internal/auth"
 	"storage-management/internal/database"
 	"storage-management/internal/util"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 )
 
 func NewFile(name string, ext string) *util.File {
@@ -59,7 +62,7 @@ func (hu *UploadHandler) Do(ginCtx *gin.Context) bool {
 		part, err := hu.reader.NextPart()
 		if err == io.EOF {
 			if hu.upload.CurrFile != nil {
-				hu.logger.Debug("eof reached", "add file", hu.upload.CurrFile.Name)
+				hu.logger.Debug("done uploading file", "filename", hu.upload.CurrFile.Name)
 				hu.upload.AddFile(hu.upload.CurrFile)
 			}
 			break
@@ -130,23 +133,59 @@ func (hu *UploadHandler) HandleFile(ginCtx *gin.Context, part *multipart.Part) *
 		)
 	}
 
-	// TODO: find the `headerBuf` xxhash value within the database
+	fileId, filePath, err := hu.db.IsHashExist(
+		ginCtx.Request.Context(),
+		util.GetXhHash(headerBuf),
+	)
 
-	f, err := SaveFile(headerBuf, part, fileName)
-	part.Close()
-	if err != nil {
+	switch err {
+	case pgx.ErrNoRows:
+		f, err := SaveFile(headerBuf, part, fileName)
+		part.Close()
+		if err != nil {
+			hu.upload.CurrFile.IsErr = true
+			hu.upload.CurrFile.Status = false
+			return util.NewErrResponse(
+				http.StatusInternalServerError,
+				gin.H{"status": "failed to upload file chunk"},
+				util.ErrToString("error uploading file chunk", err),
+			)
+		}
+
+		userId, exist := auth.GetUserId(ginCtx)
+		if !exist {
+			hu.upload.CurrFile.IsErr = true
+			hu.upload.CurrFile.Status = false
+			return util.NewErrResponse(
+				http.StatusUnauthorized,
+				gin.H{"status": "unauthorized"},
+				"failed to upload due to uanuthorized",
+			)
+		}
+
+		fileId, err := hu.db.InsertFile(ginCtx, f, userId)
+		if err == pgx.ErrNoRows {
+			os.Remove(f.Path)
+			return util.NewErrResponse(
+				http.StatusInternalServerError,
+				gin.H{"status": "failed to store file metadata"},
+				util.ErrToString("error storing file metadata", err),
+			)
+		}
+		hu.upload.CurrFile.Size += f.Size
+		hu.logger.Info("saved file", "file id", fileId, "filename", f.Filename, "extension", f.Ext, "size", f.Size, "path", f.Path)
+		return nil
+	default:
 		hu.upload.CurrFile.IsErr = true
 		hu.upload.CurrFile.Status = false
 		return util.NewErrResponse(
-			http.StatusInternalServerError,
-			gin.H{"status": "failed to upload file chunk"},
-			util.ErrToString("error uploading file chunk", err),
+			http.StatusConflict,
+			gin.H{
+				"status":    "file already exist",
+				"file id":   fileId,
+				"file path": filePath, // will remove later
+			},
+			fmt.Sprintf("file already exist: file id = %d | filepath = %s", fileId, filePath),
 		)
 	}
-
-	hu.logger.Debug("total file size", "size", f.Size)
-
-	hu.upload.CurrFile.Size = f.Size
-	hu.logger.Info("saved file", "size", f.Size, "path", f.Path)
-	return nil
 }
