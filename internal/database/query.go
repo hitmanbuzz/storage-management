@@ -77,7 +77,7 @@ func (db *DatabaseHandler) IsHashExist(pctx context.Context, targetHash uint64) 
 	hashBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(hashBytes, targetHash)
 
-	query := `SELECT id, path FROM files WHERE hash = $1 LIMIT 1`
+	query := `SELECT id, path FROM files WHERE hash = $1`
 
 	err := db.pool.QueryRow(ctx, query, hashBytes).Scan(&fileId, &filePath)
 	return fileId, filePath, err
