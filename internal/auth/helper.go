@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"storage-management/internal/util"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,7 @@ func SaveSession(ginCtx *gin.Context, userId int32) {
 	session.Options(sessions.Options{
 		Path:     "/",
 		Domain:   "",
-		MaxAge:   86400, // 24 hrs
+		MaxAge:   util.MAX_COOKIE_AGE,
 		Secure:   false,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
