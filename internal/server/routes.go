@@ -42,7 +42,10 @@ func (r *route) Register(ginCtx *gin.Context) {
 		return
 	}
 
-	resp := newAuth.Register(ginCtx.Request.Context(), r.db)
+	userId, resp := newAuth.Register(ginCtx.Request.Context(), r.db)
+	if userId != -1 {
+		SaveSession(ginCtx, userId)
+	}
 	resp.Do(ginCtx, r.logger)
 }
 
@@ -61,7 +64,10 @@ func (r *route) Login(ginCtx *gin.Context) {
 		return
 	}
 
-	resp := newAuth.Login(ginCtx.Request.Context(), r.db)
+	userId, resp := newAuth.Login(ginCtx.Request.Context(), r.db)
+	if userId != -1 {
+		SaveSession(ginCtx, userId)
+	}
 	resp.Do(ginCtx, r.logger)
 }
 

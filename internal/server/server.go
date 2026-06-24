@@ -40,9 +40,14 @@ func NewServer(ip_addr string, db *database.DatabaseHandler, logger *slog.Logger
 
 func (s *Server) Routes() {
 	routes := newRoutes(s.engine, s.db, s.logger)
-	s.engine.POST("/upload", routes.Upload)
 	s.engine.POST("/register", routes.Register)
 	s.engine.POST("/login", routes.Login)
+
+	auth := s.engine.Group("/")
+	auth.Use(AuthMiddleware)
+	{
+		auth.POST("/upload", routes.Upload)
+	}
 }
 
 func (s *Server) Run() error {

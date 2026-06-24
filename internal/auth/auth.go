@@ -36,19 +36,19 @@ func NewAuthHandler(payload util.AuthPayload) (*AuthHandler, error) {
 	}, nil
 }
 
-func (ah *AuthHandler) Register(ctx context.Context, db *database.DatabaseHandler) *util.ErrorResponse {
+func (ah *AuthHandler) Register(ctx context.Context, db *database.DatabaseHandler) (int32, *util.ErrorResponse) {
 	payload := Encrypt(ah.Payload)
 	user, err := db.InsertUser(ctx, payload)
 	if err != nil {
 		switch err {
 		case pgx.ErrNoRows:
-			return util.NewErrResponse(
+			return -1, util.NewErrResponse(
 				http.StatusNotFound,
 				gin.H{"status": "user already exist"},
 				fmt.Sprintf("user already exist: username = %s", ah.Payload.Username),
 			)
 		default:
-			return util.NewErrResponse(
+			return -1, util.NewErrResponse(
 				http.StatusInternalServerError,
 				gin.H{"status": "internal server error"},
 				fmt.Sprintf("error inserting user: username = %s | password = %s | error = %v", ah.Payload.Username, ah.Payload.Password, err),
@@ -56,25 +56,25 @@ func (ah *AuthHandler) Register(ctx context.Context, db *database.DatabaseHandle
 		}
 	}
 
-	return util.NewErrResponse(
+	return user.Id, util.NewErrResponse(
 		http.StatusCreated,
 		gin.H{"status": "user created"},
 		fmt.Sprintf("user created: id = %d | username = %s", user.Id, user.Name),
 	)
 }
 
-func (ah *AuthHandler) Login(ctx context.Context, db *database.DatabaseHandler) *util.ErrorResponse {
+func (ah *AuthHandler) Login(ctx context.Context, db *database.DatabaseHandler) (int32, *util.ErrorResponse) {
 	userID, hashPass, err := db.IsUserExist(ctx, ah.Payload.Username)
 	if err != nil {
 		switch err {
 		case pgx.ErrNoRows:
-			return util.NewErrResponse(
+			return -1, util.NewErrResponse(
 				http.StatusNotFound,
 				gin.H{"status": "user not found"},
 				fmt.Sprintf("user not found: username = %s | password = %s", ah.Payload.Username, ah.Payload.Password),
 			)
 		default:
-			return util.NewErrResponse(
+			return -1, util.NewErrResponse(
 				http.StatusInternalServerError,
 				gin.H{"status": "internal server error"},
 				fmt.Sprintf("error checking user exist: username = %s | password = %s | error = %v", ah.Payload.Username, ah.Payload.Password, err),
@@ -84,7 +84,7 @@ func (ah *AuthHandler) Login(ctx context.Context, db *database.DatabaseHandler) 
 
 	ok, err := argon2.VerifyEncoded([]byte(ah.Payload.Password), []byte(hashPass))
 	if err != nil {
-		return util.NewErrResponse(
+		return -1, util.NewErrResponse(
 			http.StatusInternalServerError,
 			gin.H{"status": "internal server error"},
 			fmt.Sprintf("invalid argon2 hash, error: %v", err),
@@ -92,14 +92,14 @@ func (ah *AuthHandler) Login(ctx context.Context, db *database.DatabaseHandler) 
 	}
 
 	if !ok {
-		return util.NewErrResponse(
+		return -1, util.NewErrResponse(
 			http.StatusUnauthorized,
 			gin.H{"status": "incorrect password"},
 			fmt.Sprintf("incorrect password: username = %s | password = %s", ah.Payload.Username, ah.Payload.Password),
 		)
 	}
 
-	return util.NewErrResponse(
+	return userID, util.NewErrResponse(
 		http.StatusOK,
 		gin.H{"status": "login successful"},
 		fmt.Sprintf("user login successful: id = %d | username = %s", userID, ah.Payload.Username),
