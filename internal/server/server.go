@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"storage-management/internal/auth"
 	"storage-management/internal/database"
 
 	"github.com/gin-contrib/sessions"
@@ -43,10 +44,10 @@ func (s *Server) Routes() {
 	s.engine.POST("/register", routes.Register)
 	s.engine.POST("/login", routes.Login)
 
-	auth := s.engine.Group("/")
-	auth.Use(AuthMiddleware)
+	auths := s.engine.Group("/")
+	auths.Use(auth.AuthMiddleware)
 	{
-		auth.POST("/upload", routes.Upload)
+		auths.POST("/upload", routes.Upload)
 	}
 }
 
